@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Durak Alarmi</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#00e5a0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Durak Alarmi">
+<link rel="apple-touch-icon" href="/icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2332;--border:#1e2d42;--accent:#00e5a0;--accent2:#ff4d6d;--accent3:#3b82f6;--text:#e8f0fe;--text2:#6b7fa3;--warn:#f59e0b}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,160,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,160,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+  .container{max-width:480px;margin:0 auto;padding:24px 16px;position:relative;z-index:1}
+  .header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+  .header-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),#00b4d8);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px}
+  .header-text h1{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.5px}
+  .header-text p{font-size:12px;color:var(--text2);margin-top:2px}
+  .status-pill{margin-left:auto;padding:4px 12px;border-radius:20px;font-size:11px;font-family:'Space Mono',monospace;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:rgba(107,127,163,.15);color:var(--text2);border:1px solid var(--border);transition:all .3s}
+  .status-pill.active{background:rgba(0,229,160,.15);color:var(--accent);border-color:rgba(0,229,160,.3);animation:ppulse 2s infinite}
+  .status-pill.alarm{background:rgba(255,77,109,.2);color:var(--accent2);border-color:rgba(255,77,109,.4)}
+  @keyframes ppulse{0%,100%{opacity:1}50%{opacity:.6}}
+  .pwa-badge{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:12px;padding:12px 16px;font-size:12px;color:#93c5fd;line-height:1.6;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px}
+  .main-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:16px;position:relative;overflow:hidden}
+  .main-card::after{content:'';position:absolute;top:0;right:0;width:120px;height:120px;background:radial-gradient(circle,rgba(0,229,160,.06),transparent 70%);pointer-events:none}
+  .distance-display{display:flex;align-items:center;justify-content:center;margin:16px 0 24px}
+  .ring-container{position:relative;width:180px;height:180px}
+  .ring-svg{width:180px;height:180px;transform:rotate(-90deg)}
+  .ring-track{fill:none;stroke:var(--border);stroke-width:8}
+  .ring-progress{fill:none;stroke:var(--accent);stroke-width:8;stroke-linecap:round;stroke-dasharray:502;stroke-dashoffset:502;transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1),stroke .3s;filter:drop-shadow(0 0 6px var(--accent))}
+  .ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+  .ring-km{font-family:'Space Mono',monospace;font-size:36px;font-weight:700;color:var(--text);line-height:1;transition:color .3s}
+  .ring-unit{font-size:12px;color:var(--text2);margin-top:2px;font-family:'Space Mono',monospace}
+  .ring-label{font-size:10px;color:var(--text2);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+  .input-section{display:flex;flex-direction:column;gap:12px}
+  .input-group{display:flex;flex-direction:column;gap:6px}
+  .card-label{font-size:10px;font-family:'Space Mono',monospace;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:6px}
+  .card-label::before{content:'';width:6px;height:6px;background:var(--accent3);border-radius:50%}
+  input[type=text],input[type=number]{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 14px;border-radius:10px;width:100%;outline:none;transition:border-color .2s}
+  input:focus{border-color:var(--accent3)}
+  input::placeholder{color:var(--text2)}
+  .autocomplete-wrapper{position:relative}
+  .autocomplete-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:10px;z-index:50;overflow:hidden;max-height:200px;overflow-y:auto}
+  .autocomplete-list:empty{display:none}
+  .autocomplete-item{padding:10px 14px;font-size:13px;cursor:pointer;color:var(--text);line-height:1.4;border-bottom:1px solid var(--border);transition:background .15s}
+  .autocomplete-item:last-child{border-bottom:none}
+  .autocomplete-item:hover,
+  .autocomplete-item:active{background:rgba(0,229,160,.08)}
+  .autocomplete-item small{color:var(--text2);font-size:11px;display:block;margin-top:2px}
+  .threshold-row{display:flex;gap:8px;align-items:flex-end}
+  .threshold-row .input-group{flex:1}
+  .unit-badge{background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-family:'Space Mono',monospace;font-size:12px;padding:10px 14px;border-radius:10px;white-space:nowrap}
+  .btn{width:100%;padding:14px;border-radius:12px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:none;transition:all .2s;text-transform:uppercase}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),#00c896);color:#0a0e1a}
+  .btn-primary:hover{transform:translateY(-1px);filter:brightness(1.1)}
+  .btn-stop{background:rgba(255,77,109,.15);color:var(--accent2);border:1px solid rgba(255,77,109,.3)}
+  .btn-stop:hover{background:rgba(255,77,109,.25)}
+  .btn-row{display:flex;gap:10px;margin-top:4px}
+  .btn-row .btn{flex:1}
+  .info-bar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
+  .info-item{text-align:center}
+  .info-val{font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:var(--text)}
+  .info-key{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+  .log-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:24px}
+  .log-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  .log-header span{font-size:10px;font-family:'Space Mono',monospace;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+  .log-clear{background:none;border:none;color:var(--text2);font-size:10px;cursor:pointer;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.5px;padding:2px 6px;border-radius:4px;transition:color .2s}
+  .log-clear:hover{color:var(--accent2)}
+  .log-body{max-height:180px;overflow-y:auto;padding:8px 0}
+  .log-body::-webkit-scrollbar{width:4px}
+  .log-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .log-item{padding:6px 16px;font-size:12px;display:flex;gap:10px;align-items:flex-start;border-left:2px solid transparent}
+  .log-item.info{border-left-color:var(--accent3)}
+  .log-item.warn{border-left-color:var(--warn)}
+  .log-item.alarm{border-left-color:var(--accent2);background:rgba(255,77,109,.05)}
+  .log-item.success{border-left-color:var(--accent)}
+  .log-time{font-family:'Space Mono',monospace;font-size:10px;color:var(--text2);white-space:nowrap;margin-top:1px}
+  .log-msg{color:var(--text);line-height:1.4}
+  .alarm-overlay{display:none;position:fixed;inset:0;background:rgba(255,77,109,.1);z-index:100;backdrop-filter:blur(2px);animation:aflash .5s ease infinite alternate}
+  .alarm-overlay.show{display:flex;align-items:center;justify-content:center}
+  @keyframes aflash{from{background:rgba(255,77,109,.05)}to{background:rgba(255,77,109,.2)}}
+  .alarm-modal{background:var(--surface);border:2px solid var(--accent2);border-radius:24px;padding:40px 32px;text-align:center;max-width:320px;width:90%;box-shadow:0 0 60px rgba(255,77,109,.3);animation:modalin .3s cubic-bezier(.34,1.56,.64,1);position:relative;z-index:101}
+  @keyframes modalin{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+  .alarm-icon{font-size:56px;animation:shake .3s infinite;display:block;margin-bottom:12px}
+  @keyframes shake{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+  .alarm-title{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--accent2);margin-bottom:8px}
+  .alarm-desc{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:24px}
+  .btn-dismiss{background:var(--accent2);color:white;padding:14px 32px;border-radius:12px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:none;text-transform:uppercase}
+  .hidden{display:none!important}
+  .fade-in{animation:fadein .4s ease forwards}
+  @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div class="alarm-overlay" id="alarmOverlay">
+  <div class="alarm-modal">
+    <span class="alarm-icon">&#128680;</span>
+    <div class="alarm-title">DURAGA YAKLASIYORSUN!</div>
+    <div class="alarm-desc" id="alarmDesc">Inmek icin hazirlan!</div>
+    <button class="btn-dismiss" onclick="dismissAlarm()">TAMAM, INIYORUM</button>
+  </div>
+</div>
+<div class="container">
+  <div class="header fade-in">
+    <div class="header-icon">&#128652;</div>
+    <div class="header-text">
+      <h1>DURAK ALARMI</h1>
+      <p>Artik durak kacirmayacaksin</p>
+    </div>
+    <div class="status-pill" id="statusPill">BEKLEMEDE</div>
+  </div>
+
+  <div class="pwa-badge fade-in" id="pwaBadge">
+    <span style="font-size:18px">&#128241;</span>
+    <span id="pwaBadgeText">Ana ekrana ekle: tarayici menusunden <strong>"Ana Ekrana Ekle"</strong> sec. Uygulama gibi calisir, arka planda alarm verir!</span>
+  </div>
+
+  <div class="main-card fade-in">
+    <div class="distance-display">
+      <div class="ring-container">
+        <svg class="ring-svg" viewBox="0 0 180 180">
+          <circle class="ring-track" cx="90" cy="90" r="80"/>
+          <circle class="ring-progress" id="ringProgress" cx="90" cy="90" r="80"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-km" id="distVal">--</div>
+          <div class="ring-unit" id="distUnit">km</div>
+          <div class="ring-label">kaldi</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-section">
+      <div class="input-group">
+        <div class="card-label">Hedef Konum</div>
+        <div class="autocomplete-wrapper">
+          <input type="text" id="destination" placeholder="Taksim Meydani, Istanbul" autocomplete="off" oninput="onDestInput()"/>
+          <div class="autocomplete-list" id="autoList"></div>
+        </div>
+      </div>
+      <div class="input-group">
+        <div class="card-label">Alarm Mesafesi</div>
+        <div class="threshold-row">
+          <div class="input-group">
+            <input type="number" id="threshold" placeholder="1.5" min="0.1" step="0.1" style="text-align:center"/>
+          </div>
+          <div class="unit-badge">km kala</div>
+        </div>
+      </div>
+      <div class="btn-row" id="btnRow">
+        <button class="btn btn-primary" onclick="startTracking()">&#9654; ALARMINI BASLAT</button>
+      </div>
+      <div class="btn-row hidden" id="stopRow">
+        <button class="btn btn-stop" onclick="stopTracking()">&#9632; DURDUR</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-bar fade-in">
+    <div class="info-item">
+      <div class="info-val">15s</div>
+      <div class="info-key">Guncelleme</div>
+    </div>
+    <div class="info-item">
+      <div class="info-val" id="infoThresh">--</div>
+      <div class="info-key">Alarm Noktasi</div>
+    </div>
+    <div class="info-item">
+      <div class="info-val" id="infoChecks">0</div>
+      <div class="info-key">Kontrol</div>
+    </div>
+  </div>
+
+  <div class="log-card fade-in">
+    <div class="log-header">
+      <span>&#128203; Sistem Gunlugu</span>
+      <button class="log-clear" onclick="clearLog()">temizle</button>
+    </div>
+    <div class="log-body" id="logBody"></div>
+  </div>
+</div>
+
+<script>
+var sw = null;
+var trackingInterval = null;
+var checkCount = 0;
+var alarmFired = false;
+var audioCtx = null;
+var alarmSoundInterval = null;
+var initialDistance = null;
+var selectedLat = null;
+var selectedLon = null;
+var autocompleteTimer = null;
+var destName = '';
+
+// Service Worker kaydet
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+    sw = reg;
+    addLog('Arka plan destegi aktif (PWA)', 'success');
+  }).catch(function(e) {
+    addLog('SW hatasi: ' + e.message, 'warn');
+  });
+
+  // SW mesajlarini dinle
+  navigator.serviceWorker.addEventListener('message', function(e) {
+    var msg = e.data;
+    if (msg.type === 'GET_LOCATION') {
+      sendLocationToSW();
+    }
+    if (msg.type === 'DISTANCE') {
+      var km = msg.km;
+      if (initialDistance === null) initialDistance = km;
+      setDistDisplay(km);
+      updateRing(km, initialDistance);
+      checkCount++;
+      document.getElementById('infoChecks').textContent = checkCount;
+      var thr = parseFloat(document.getElementById('threshold').value);
+      var label = km < 1 ? (Math.round(km*1000)+'m') : (km.toFixed(2)+'km');
+      addLog('Hedefe kalan: ' + label + ' (alarm: ' + thr + 'km)', km <= thr ? 'alarm' : 'success');
+    }
+    if (msg.type === 'ALARM') {
+      triggerAlarmUI(msg.km);
+    }
+  });
+}
+
+function sendLocationToSW() {
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'LOCATION',
+        data: { lat: pos.coords.latitude, lon: pos.coords.longitude }
+      });
+    }
+  }, function(e) {
+    addLog('GPS alinamadi: ' + e.message, 'warn');
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+function getTime() {
+  return new Date().toLocaleTimeString('tr-TR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function addLog(msg, type) {
+  if (!type) type = 'info';
+  var log = document.getElementById('logBody');
+  var item = document.createElement('div');
+  item.className = 'log-item ' + type;
+  item.innerHTML = '<span class="log-time">' + getTime() + '</span><span class="log-msg">' + msg + '</span>';
+  log.appendChild(item);
+  log.scrollTop = log.scrollHeight;
+}
+function clearLog() {
+  document.getElementById('logBody').innerHTML = '';
+  addLog('Gunluk temizlendi.', 'info');
+}
+
+// Nominatim autocomplete
+function onDestInput() {
+  var q = document.getElementById('destination').value.trim();
+  selectedLat = null; selectedLon = null;
+  clearTimeout(autocompleteTimer);
+  if (q.length < 3) { document.getElementById('autoList').innerHTML = ''; return; }
+  autocompleteTimer = setTimeout(function() { fetchSuggestions(q); }, 400);
+}
+function fetchSuggestions(q) {
+  fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=5&addressdetails=1', { headers: {'Accept-Language':'tr'} })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var list = document.getElementById('autoList');
+      list.innerHTML = '';
+      data.forEach(function(item) {
+        var div = document.createElement('div');
+        div.className = 'autocomplete-item';
+        var parts = item.display_name.split(',');
+        var name = parts.slice(0,3).join(', ');
+        var detail = parts.slice(3,5).join(', ');
+        div.innerHTML = name + '<small>' + detail + '</small>';
+        div.onclick = (function(it) { return function() {
+          destName = it.display_name.split(',')[0];
+          document.getElementById('destination').value = it.display_name.split(',').slice(0,3).join(', ');
+          selectedLat = parseFloat(it.lat);
+          selectedLon = parseFloat(it.lon);
+          list.innerHTML = '';
+          addLog('Hedef secildi: ' + destName, 'success');
+        }; })(item);
+        list.appendChild(div);
+      });
+    }).catch(function() {});
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.autocomplete-wrapper')) document.getElementById('autoList').innerHTML = '';
+});
+
+// Haversine
+function haversine(lat1, lon1, lat2, lon2) {
+  var R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function updateRing(current, initial) {
+  var ring = document.getElementById('ringProgress'), c = 502;
+  if (!initial || initial === 0) { ring.style.strokeDashoffset = c; return; }
+  var ratio = Math.max(0, Math.min(1, current/initial));
+  ring.style.strokeDashoffset = c * ratio;
+  if (ratio < 0.2) { ring.style.stroke = '#ff4d6d'; ring.style.filter = 'drop-shadow(0 0 8px #ff4d6d)'; }
+  else if (ratio < 0.5) { ring.style.stroke = '#f59e0b'; ring.style.filter = 'drop-shadow(0 0 6px #f59e0b)'; }
+  else { ring.style.stroke = '#00e5a0'; ring.style.filter = 'drop-shadow(0 0 6px #00e5a0)'; }
+}
+function setDistDisplay(km) {
+  var val = document.getElementById('distVal'), unit = document.getElementById('distUnit');
+  if (km === null) { val.textContent = '--'; unit.textContent = 'km'; return; }
+  if (km < 1) { val.textContent = Math.round(km*1000); unit.textContent = 'm'; }
+  else { val.textContent = km.toFixed(1); unit.textContent = 'km'; }
+}
+
+// Foreground check (SW yoksa fallback)
+function checkDistanceForeground() {
+  if (!selectedLat) return;
+  var thr = parseFloat(document.getElementById('threshold').value);
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var km = haversine(pos.coords.latitude, pos.coords.longitude, selectedLat, selectedLon);
+    checkCount++;
+    document.getElementById('infoChecks').textContent = checkCount;
+    if (initialDistance === null) initialDistance = km;
+    setDistDisplay(km);
+    updateRing(km, initialDistance);
+    var label = km < 1 ? (Math.round(km*1000)+'m') : (km.toFixed(2)+'km');
+    addLog('Hedefe kalan: ' + label + ' (alarm: ' + thr + 'km)', km <= thr ? 'alarm' : 'success');
+    if (km <= thr && !alarmFired) triggerAlarmUI(km);
+  }, function(e) {
+    addLog('GPS alinamadi: ' + e.message, 'warn');
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+function triggerAlarmUI(distKm) {
+  alarmFired = true;
+  var label = distKm < 1 ? (Math.round(distKm*1000)+'m') : (distKm.toFixed(1)+'km');
+  document.getElementById('alarmDesc').textContent = '"' + destName + '" hedefine yalnizca ' + label + ' kaldi! Inmek icin hazirlan!';
+  document.getElementById('alarmOverlay').classList.add('show');
+  document.getElementById('statusPill').className = 'status-pill alarm';
+  document.getElementById('statusPill').textContent = 'ALARM!';
+  addLog('ALARM! Hedefe ' + label + ' kaldi.', 'alarm');
+  playAlarmSound();
+  alarmSoundInterval = setInterval(playAlarmSound, 2000);
+}
+function dismissAlarm() {
+  document.getElementById('alarmOverlay').classList.remove('show');
+  if (alarmSoundInterval) { clearInterval(alarmSoundInterval); alarmSoundInterval = null; }
+  stopTracking();
+  addLog('Alarm kapatildi. Iyi yolculuklar!', 'success');
+}
+function playAlarmSound() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    [880,660,880,660].forEach(function(freq, i) {
+      var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.frequency.value = freq; osc.type = 'square';
+      var t = audioCtx.currentTime + i*0.15;
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t+0.12);
+      osc.start(t); osc.stop(t+0.12);
+    });
+  } catch(e) {}
+}
+
+async function startTracking() {
+  var dest = document.getElementById('destination').value.trim();
+  var thr = parseFloat(document.getElementById('threshold').value);
+  if (!dest) { addLog('Hedef konum girilmedi!', 'warn'); return; }
+  if (isNaN(thr) || thr <= 0) { addLog('Gecerli bir alarm mesafesi gir!', 'warn'); return; }
+  if (!navigator.geolocation) { addLog('Tarayicin konum desteklemiyor!', 'warn'); return; }
+
+  // Konum izni iste
+  try {
+    await new Promise(function(res, rej) {
+      navigator.geolocation.getCurrentPosition(res, rej, {timeout:8000});
+    });
+  } catch(e) {
+    addLog('Konum izni verilmedi: ' + e.message, 'warn');
+    return;
+  }
+
+  // Bildirim izni iste
+  if ('Notification' in window && Notification.permission === 'default') {
+    var perm = await Notification.requestPermission();
+    if (perm === 'granted') addLog('Bildirim izni alindi', 'success');
+    else addLog('Bildirim izni verilmedi (ekran acikken alarm calar)', 'warn');
+  }
+
+  // Konum sec
+  if (selectedLat === null) {
+    try {
+      var r = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(dest) + '&format=json&limit=1', {headers:{'Accept-Language':'tr'}});
+      var data = await r.json();
+      if (!data.length) { addLog('Konum bulunamadi!', 'warn'); return; }
+      selectedLat = parseFloat(data[0].lat);
+      selectedLon = parseFloat(data[0].lon);
+      destName = data[0].display_name.split(',')[0];
+      addLog('Konum bulundu: ' + destName, 'success');
+    } catch(e) { addLog('Konum arama hatasi: ' + e.message, 'warn'); return; }
+  }
+
+  alarmFired = false; checkCount = 0; initialDistance = null;
+  setDistDisplay(null); updateRing(1,1);
+  document.getElementById('infoThresh').textContent = thr + 'km';
+  document.getElementById('infoChecks').textContent = '0';
+  document.getElementById('btnRow').classList.add('hidden');
+  document.getElementById('stopRow').classList.remove('hidden');
+  document.getElementById('statusPill').className = 'status-pill active';
+  document.getElementById('statusPill').textContent = 'AKTIF';
+  addLog('Takip basladi: "' + destName + '" | Alarm: ' + thr + 'km kala', 'success');
+
+  // SW varsa ona delege et
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'START',
+      data: { lat: selectedLat, lon: selectedLon, threshold: thr }
+    });
+    addLog('Arka plan takibi aktif (ekran kapansa da calisir)', 'success');
+    // Foreground da calis (UI guncelleme icin)
+    checkDistanceForeground();
+    trackingInterval = setInterval(checkDistanceForeground, 15000);
+  } else {
+    // Fallback: sadece foreground
+    addLog('Arka plan yok, uygulama acik kalmali!', 'warn');
+    checkDistanceForeground();
+    trackingInterval = setInterval(checkDistanceForeground, 15000);
+  }
+}
+
+function stopTracking() {
+  if (trackingInterval) { clearInterval(trackingInterval); trackingInterval = null; }
+  if (alarmSoundInterval) { clearInterval(alarmSoundInterval); alarmSoundInterval = null; }
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'STOP' });
+  }
+  document.getElementById('btnRow').classList.remove('hidden');
+  document.getElementById('stopRow').classList.add('hidden');
+  document.getElementById('statusPill').className = 'status-pill';
+  document.getElementById('statusPill').textContent = 'BEKLEMEDE';
+  setDistDisplay(null); updateRing(0,1);
+  addLog('Takip durduruldu.', 'info');
+}
+
+addLog('Sistem hazir. Hedefini yaz, listeden sec, alarmini baslat!', 'success');
+</script>
+</body>
+</html>
